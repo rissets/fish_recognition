@@ -1,0 +1,15 @@
+[
+  {
+    "name": "Oreochromis niloticus",
+    "accuracy": 0.8666666666666667,
+    "bbox": [
+      283,
+      209,
+      755,
+      528
+    ],
+    "detection_time": 0.14365315437316895,
+    "segmentation_time": 0.08513903617858887,
+    "classification_time": 0.40748071670532227
+  }
+]

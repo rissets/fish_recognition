@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Fish Recognition System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .video-stream {
+            width: 100%;
+            height: auto;
+            display: block;
+            object-fit: contain; /* Preserve aspect ratio without stretching */
+            max-height: 600px;
+        }
+        .status-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .fish-info-panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .fish-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+        .fish-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .accuracy-bar {
+            height: 6px;
+            background: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .accuracy-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.3s ease;
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .btn-custom {
+            border-radius: 25px;
+            padding: 10px 25px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+        .btn-start {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            border: none;
+            color: white;
+        }
+        .btn-stop {
+            background: linear-gradient(45deg, #dc3545, #fd7e14);
+            border: none;
+            color: white;
+        }
+        .connection-status {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .connected { background-color: #28a745; }
+        .disconnected { background-color: #dc3545; }
+        .connecting { background-color: #ffc107; animation: pulse 1s infinite; }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .log-container {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #212529;
+            color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .image-upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .image-upload-area:hover {
+            border-color: #007bff;
+            background: #e7f3ff;
+        }
+        
+        .image-upload-area.dragover {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+        
+        .processing-spinner {
+            display: none;
+        }
+        
+        .species-item {
+            background: #f1f3f4;
+            border-left: 4px solid #007bff;
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+        
+        .species-item:hover {
+            background: #e9ecef;
+            transform: translateX(2px);
+        }
+        
+        .species-count {
+            background: #007bff;
+            color: white;
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        
+        .fps-indicator {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .fps-low { background: linear-gradient(45deg, #dc3545, #fd7e14); }
+        .fps-medium { background: linear-gradient(45deg, #ffc107, #fd7e14); }
+        .fps-high { background: linear-gradient(45deg, #28a745, #20c997); }
+        
+        .performance-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 8px;
+            margin-left: 5px;
+        }
+        
+        .processing-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-left: 8px;
+        }
+        
+        .processing-active { background-color: #28a745; animation: pulse 1s infinite; }
+        .processing-idle { background-color: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <div class="row">
+            <!-- Header -->
+            <div class="col-12 mb-4">
+                <div class="text-center">
+                    <h1 class="display-4 fw-bold text-primary">
+                        <i class="fas fa-fish"></i> Real-time Fish Recognition System
+                    </h1>
+                    <p class="lead text-muted">AI-powered fish detection and classification using Django WebSocket</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Video Stream -->
+            <div class="col-lg-8">
+                <div class="fish-info-panel">
+                    <h3><i class="fas fa-video"></i> Live Camera Feed</h3>
+                    
+                    <!-- Connection Status -->
+                    <div class="mb-3">
+                        <span class="connection-status disconnected" id="connectionStatus"></span>
+                        <span id="connectionText">Disconnected</span>
+                        <span class="ms-3">
+                            <span class="performance-badge bg-info text-dark">Target: <span id="displayTargetFPS">30</span> FPS</span>
+                            <span class="performance-badge bg-secondary" id="qualityBadge">Quality: 70%</span>
+                        </span>
+                    </div>
+                    
+                    <!-- Video Container -->
+                    <div class="video-container">
+                        <img id="videoStream" class="video-stream" src="data:image/svg+xml,%3csvg width='100%25' height='400' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='%23343a40'/%3e%3ctext x='50%25' y='50%25' font-size='20' text-anchor='middle' alignment-baseline='middle' fill='white'%3eCamera feed will appear here%3c/text%3e%3c/svg%3e" alt="Video Stream">
+                        <div class="status-overlay" id="statusOverlay">
+                            <div>Status: <span id="streamStatus">Ready</span></div>
+                            <div>Fish: <span id="fishCount">0</span> | Species: <span id="currentSpeciesCount">0</span></div>
+                            <div class="fps-indicator fps-high">FPS: <span id="fpsCounter">0</span></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Controls -->
+                    <div class="mt-3 text-center">
+                        <button id="startBtn" class="btn btn-start btn-custom me-2">
+                            <i class="fas fa-play"></i> Start Detection
+                        </button>
+                        <button id="stopBtn" class="btn btn-stop btn-custom me-2" disabled>
+                            <i class="fas fa-stop"></i> Stop Detection
+                        </button>
+                        <button id="captureBtn" class="btn btn-outline-primary btn-custom" disabled>
+                            <i class="fas fa-camera"></i> Capture Frame
+                        </button>
+                        
+                        <div class="mt-3">
+                            <label for="cameraSelect" class="form-label">Camera:</label>
+                            <select id="cameraSelect" class="form-select d-inline-block w-auto ms-2">
+                                <option value="0">Camera 0 (Default)</option>
+                                <option value="1">Camera 1</option>
+                                <option value="2">Camera 2</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Image Upload Section -->
+                <div class="fish-info-panel">
+                    <h3><i class="fas fa-upload"></i> Image Upload & Analysis</h3>
+                    <div class="image-upload-area" id="uploadArea">
+                        <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                        <h5>Drop an image here or click to select</h5>
+                        <p class="text-muted">Supports JPG, PNG, BMP formats (max 10MB)</p>
+                        <input type="file" id="imageInput" accept="image/*" style="display: none;">
+                    </div>
+                    
+                    <div class="processing-spinner mt-3 text-center" id="processingSpinner">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Processing...</span>
+                        </div>
+                        <p class="mt-2">Processing image...</p>
+                    </div>
+                    
+                    <div id="uploadResults" class="mt-3" style="display: none;">
+                        <h5>Analysis Results:</h5>
+                        <img id="processedImage" class="img-fluid rounded" style="max-height: 300px;">
+                        <div id="uploadFishResults" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <!-- Statistics -->
+                <div class="stats-card">
+                    <h4><i class="fas fa-chart-line"></i> Statistics</h4>
+                    <div class="row mt-3">
+                        <div class="col-6">
+                            <h2 id="totalFishDetected">0</h2>
+                            <small>Total Fish Detected</small>
+                        </div>
+                        <div class="col-6">
+                            <h2 id="avgAccuracy">0%</h2>
+                            <small>Avg Accuracy</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current Detections -->
+                <div class="fish-info-panel">
+                    <h3><i class="fas fa-list"></i> Current Detections</h3>
+                    <div id="fishDetections">
+                        <p class="text-muted text-center">No fish detected yet</p>
+                    </div>
+                </div>
+
+                <!-- Fish Species List -->
+                <div class="fish-info-panel">
+                    <h3><i class="fas fa-fish"></i> Detected Species</h3>
+                    <div class="mb-2">
+                        <small class="text-muted">Total unique species: <span id="uniqueSpeciesCount">0</span></small>
+                    </div>
+                    <div id="fishSpeciesList">
+                        <p class="text-muted text-center">No species detected yet</p>
+                    </div>
+                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="clearSpeciesList()">
+                        <i class="fas fa-broom"></i> Clear List
+                    </button>
+                </div>
+
+                <!-- Performance Controls -->
+                <div class="fish-info-panel">
+                    <h3><i class="fas fa-tachometer-alt"></i> Performance</h3>
+                    <div class="mb-3">
+                        <label for="fpsTarget" class="form-label">Target FPS: <span id="fpsTargetValue">30</span></label>
+                        <input type="range" class="form-range" id="fpsTarget" min="10" max="60" value="30">
+                    </div>
+                    <div class="mb-3">
+                        <label for="frameQuality" class="form-label">Quality: <span id="frameQualityValue">70</span>%</label>
+                        <input type="range" class="form-range" id="frameQuality" min="30" max="100" value="70">
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="skipProcessing" checked>
+                            <label class="form-check-label" for="skipProcessing">
+                                High Speed Mode (Skip some processing)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Log -->
+                <div class="fish-info-panel">
+                    <h3><i class="fas fa-terminal"></i> System Log</h3>
+                    <div class="log-container" id="systemLog">
+                        <div>System initialized</div>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary mt-2" onclick="clearLog()">
+                        <i class="fas fa-trash"></i> Clear Log
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        class FishRecognitionApp {
+            constructor() {
+                this.ws = null;
+                this.imageWs = null;
+                this.isRunning = false;
+                this.totalFishDetected = 0;
+                this.accuracySum = 0;
+                this.detectionCount = 0;
+                this.detectedSpecies = new Map(); // Track unique species with counts
+                this.lastProcessedTime = 0;
+                this.targetFPS = 30;
+                this.frameQuality = 70;
+                this.highSpeedMode = true;
+                
+                this.initializeElements();
+                this.setupEventListeners();
+                this.connectWebSocket();
+                this.log('Application initialized');
+            }
+            
+            initializeElements() {
+                this.startBtn = document.getElementById('startBtn');
+                this.stopBtn = document.getElementById('stopBtn');
+                this.captureBtn = document.getElementById('captureBtn');
+                this.videoStream = document.getElementById('videoStream');
+                this.connectionStatus = document.getElementById('connectionStatus');
+                this.connectionText = document.getElementById('connectionText');
+                this.fpsCounter = document.getElementById('fpsCounter');
+                this.fishCount = document.getElementById('fishCount');
+                this.streamStatus = document.getElementById('streamStatus');
+                this.fishDetections = document.getElementById('fishDetections');
+                this.systemLog = document.getElementById('systemLog');
+                this.cameraSelect = document.getElementById('cameraSelect');
+                this.totalFishElement = document.getElementById('totalFishDetected');
+                this.avgAccuracyElement = document.getElementById('avgAccuracy');
+                
+                // Image upload elements
+                this.uploadArea = document.getElementById('uploadArea');
+                this.imageInput = document.getElementById('imageInput');
+                this.processingSpinner = document.getElementById('processingSpinner');
+                this.uploadResults = document.getElementById('uploadResults');
+                this.processedImage = document.getElementById('processedImage');
+                this.uploadFishResults = document.getElementById('uploadFishResults');
+                
+                // New elements for species list and performance
+                this.fishSpeciesList = document.getElementById('fishSpeciesList');
+                this.uniqueSpeciesCount = document.getElementById('uniqueSpeciesCount');
+                this.fpsTarget = document.getElementById('fpsTarget');
+                this.fpsTargetValue = document.getElementById('fpsTargetValue');
+                this.frameQuality = document.getElementById('frameQuality');
+                this.frameQualityValue = document.getElementById('frameQualityValue');
+                this.skipProcessing = document.getElementById('skipProcessing');
+                
+                // Status display elements
+                this.displayTargetFPS = document.getElementById('displayTargetFPS');
+                this.qualityBadge = document.getElementById('qualityBadge');
+                this.currentSpeciesCount = document.getElementById('currentSpeciesCount');
+            }
+            
+            setupEventListeners() {
+                this.startBtn.addEventListener('click', () => this.startDetection());
+                this.stopBtn.addEventListener('click', () => this.stopDetection());
+                this.captureBtn.addEventListener('click', () => this.captureFrame());
+                
+                // Image upload events
+                this.uploadArea.addEventListener('click', () => this.imageInput.click());
+                this.uploadArea.addEventListener('dragover', this.handleDragOver.bind(this));
+                this.uploadArea.addEventListener('dragleave', this.handleDragLeave.bind(this));
+                this.uploadArea.addEventListener('drop', this.handleDrop.bind(this));
+                this.imageInput.addEventListener('change', this.handleImageSelect.bind(this));
+                
+                // Performance control events
+                this.fpsTarget.addEventListener('input', (e) => {
+                    this.targetFPS = parseInt(e.target.value);
+                    this.fpsTargetValue.textContent = this.targetFPS;
+                    this.displayTargetFPS.textContent = this.targetFPS;
+                });
+                
+                this.frameQuality.addEventListener('input', (e) => {
+                    this.frameQuality = parseInt(e.target.value);
+                    this.frameQualityValue.textContent = this.frameQuality;
+                    this.qualityBadge.textContent = `Quality: ${this.frameQuality}%`;
+                });
+                
+                this.skipProcessing.addEventListener('change', (e) => {
+                    this.highSpeedMode = e.target.checked;
+                });
+            }
+            
+            connectWebSocket() {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/ws/fish-recognition/`;
+                const imageWsUrl = `${protocol}//${window.location.host}/ws/image-upload/`;
+                
+                this.log(`Connecting to WebSocket: ${wsUrl}`);
+                this.updateConnectionStatus('connecting');
+                
+                this.ws = new WebSocket(wsUrl);
+                this.imageWs = new WebSocket(imageWsUrl);
+                
+                this.ws.onopen = () => {
+                    this.log('WebSocket connected successfully');
+                    this.updateConnectionStatus('connected');
+                };
+                
+                this.ws.onmessage = (event) => {
+                    this.handleWebSocketMessage(JSON.parse(event.data));
+                };
+                
+                this.ws.onclose = () => {
+                    this.log('WebSocket connection closed');
+                    this.updateConnectionStatus('disconnected');
+                    this.isRunning = false;
+                    this.updateUI();
+                };
+                
+                this.ws.onerror = (error) => {
+                    this.log(`WebSocket error: ${error}`);
+                    this.updateConnectionStatus('disconnected');
+                };
+                
+                // Image WebSocket events
+                this.imageWs.onopen = () => {
+                    this.log('Image WebSocket connected');
+                };
+                
+                this.imageWs.onmessage = (event) => {
+                    this.handleImageWebSocketMessage(JSON.parse(event.data));
+                };
+            }
+            
+            handleWebSocketMessage(data) {
+                switch(data.type) {
+                    case 'connection':
+                        this.log(`Server: ${data.message}`);
+                        break;
+                        
+                    case 'recognition_started':
+                        this.log('Fish recognition started');
+                        this.isRunning = true;
+                        this.updateUI();
+                        this.streamStatus.textContent = 'Running';
+                        break;
+                        
+                    case 'recognition_stopped':
+                        this.log('Fish recognition stopped');
+                        this.isRunning = false;
+                        this.updateUI();
+                        this.streamStatus.textContent = 'Stopped';
+                        break;
+                        
+                    case 'recognition_result':
+                        this.handleRecognitionResult(data.data);
+                        break;
+                        
+                    case 'error':
+                        this.log(`Error: ${data.message}`);
+                        break;
+                        
+                    default:
+                        this.log(`Unknown message type: ${data.type}`);
+                }
+            }
+            
+            handleImageWebSocketMessage(data) {
+                switch(data.type) {
+                    case 'image_result':
+                        this.handleImageResult(data.data);
+                        break;
+                        
+                    case 'error':
+                        this.log(`Image processing error: ${data.message}`);
+                        this.processingSpinner.style.display = 'none';
+                        break;
+                }
+            }
+            
+            handleRecognitionResult(data) {
+                // Update video stream
+                if (data.frame) {
+                    this.videoStream.src = `data:image/jpeg;base64,${data.frame}`;
+                }
+                
+                // Update FPS with color coding
+                if (data.fps !== undefined) {
+                    const fps = data.fps.toFixed(1);
+                    this.fpsCounter.textContent = fps;
+                    
+                    // Update FPS indicator styling
+                    const fpsElement = this.fpsCounter.parentElement;
+                    fpsElement.className = 'fps-indicator';
+                    if (data.fps < 15) {
+                        fpsElement.classList.add('fps-low');
+                    } else if (data.fps < 25) {
+                        fpsElement.classList.add('fps-medium');
+                    } else {
+                        fpsElement.classList.add('fps-high');
+                    }
+                }
+                
+                // Update processing indicator
+                const processingIndicator = document.querySelector('.processing-indicator') || this.createProcessingIndicator();
+                if (data.processed) {
+                    processingIndicator.className = 'processing-indicator processing-active';
+                    this.lastProcessedTime = Date.now();
+                } else {
+                    // Check if last processing was recent
+                    if (Date.now() - this.lastProcessedTime > 1000) {
+                        processingIndicator.className = 'processing-indicator processing-idle';
+                    }
+                }
+                
+                // Update fish detections
+                if (data.fish_results && data.fish_results.length > 0) {
+                    this.updateFishDetections(data.fish_results);
+                    this.updateSpeciesList(data.fish_results);
+                    this.fishCount.textContent = data.fish_results.length;
+                    
+                    // Update statistics
+                    this.totalFishDetected += data.fish_results.length;
+                    this.detectionCount++;
+                    
+                    data.fish_results.forEach(fish => {
+                        this.accuracySum += fish.accuracy;
+                    });
+                    
+                    this.updateStatistics();
+                } else if (data.processed) {
+                    // Only update if this was a processed frame
+                    this.fishCount.textContent = '0';
+                    this.updateFishDetections([]);
+                }
+            }
+            
+            handleImageResult(data) {
+                this.processingSpinner.style.display = 'none';
+                this.uploadResults.style.display = 'block';
+                
+                // Show processed image
+                this.processedImage.src = `data:image/jpeg;base64,${data.processed_image}`;
+                
+                // Show fish results
+                this.updateUploadFishResults(data.fish_results);
+                
+                this.log(`Image processed: ${data.fish_count} fish detected`);
+            }
+            
+            updateFishDetections(fishResults) {
+                if (fishResults.length === 0) {
+                    this.fishDetections.innerHTML = '<p class="text-muted text-center">No fish detected</p>';
+                    return;
+                }
+                
+                let html = '';
+                fishResults.forEach((fish, index) => {
+                    const accuracy = (fish.accuracy * 100).toFixed(1);
+                    const processingTime = fish.classification_time ? fish.classification_time.toFixed(3) : 'N/A';
+                    
+                    html += `
+                        <div class="fish-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-1">${fish.name}</h6>
+                                <span class="badge bg-primary">${accuracy}%</span>
+                            </div>
+                            <small class="text-muted">Processing: ${processingTime}s</small>
+                            <div class="accuracy-bar">
+                                <div class="accuracy-fill" style="width: ${accuracy}%"></div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                this.fishDetections.innerHTML = html;
+            }
+            
+            updateSpeciesList(fishResults) {
+                // Update species count
+                fishResults.forEach(fish => {
+                    if (fish.name && fish.name !== 'Unknown') {
+                        const currentCount = this.detectedSpecies.get(fish.name) || 0;
+                        this.detectedSpecies.set(fish.name, currentCount + 1);
+                    }
+                });
+                
+                // Update species display
+                this.renderSpeciesList();
+            }
+            
+            renderSpeciesList() {
+                const speciesCount = this.detectedSpecies.size;
+                this.uniqueSpeciesCount.textContent = speciesCount;
+                if (this.currentSpeciesCount) {
+                    this.currentSpeciesCount.textContent = speciesCount;
+                }
+                
+                if (speciesCount === 0) {
+                    this.fishSpeciesList.innerHTML = '<p class="text-muted text-center">No species detected yet</p>';
+                    return;
+                }
+                
+                // Sort by count (descending)
+                const sortedSpecies = Array.from(this.detectedSpecies.entries())
+                    .sort((a, b) => b[1] - a[1]);
+                
+                let html = '';
+                sortedSpecies.forEach(([species, count]) => {
+                    html += `
+                        <div class="species-item">
+                            <span>${species}</span>
+                            <span class="species-count">${count}</span>
+                        </div>
+                    `;
+                });
+                
+                this.fishSpeciesList.innerHTML = html;
+            }
+            
+            createProcessingIndicator() {
+                const statusOverlay = document.getElementById('statusOverlay');
+                const indicator = document.createElement('span');
+                indicator.className = 'processing-indicator processing-idle';
+                indicator.title = 'Processing status';
+                
+                const processingText = document.createElement('span');
+                processingText.textContent = ' Processing';
+                processingText.style.fontSize = '12px';
+                
+                statusOverlay.appendChild(document.createElement('br'));
+                statusOverlay.appendChild(indicator);
+                statusOverlay.appendChild(processingText);
+                
+                return indicator;
+            }
+            
+            updateUploadFishResults(fishResults) {
+                if (fishResults.length === 0) {
+                    this.uploadFishResults.innerHTML = '<p class="text-muted">No fish detected in the image</p>';
+                    return;
+                }
+                
+                let html = '<div class="row">';
+                fishResults.forEach((fish, index) => {
+                    const accuracy = (fish.accuracy * 100).toFixed(1);
+                    
+                    html += `
+                        <div class="col-md-6 mb-2">
+                            <div class="card">
+                                <div class="card-body p-2">
+                                    <h6 class="card-title mb-1">${fish.name}</h6>
+                                    <div class="progress" style="height: 5px;">
+                                        <div class="progress-bar" style="width: ${accuracy}%"></div>
+                                    </div>
+                                    <small class="text-muted">${accuracy}% confidence</small>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                
+                this.uploadFishResults.innerHTML = html;
+            }
+            
+            updateStatistics() {
+                this.totalFishElement.textContent = this.totalFishDetected;
+                
+                if (this.detectionCount > 0) {
+                    const avgAccuracy = (this.accuracySum / this.detectionCount * 100).toFixed(1);
+                    this.avgAccuracyElement.textContent = `${avgAccuracy}%`;
+                }
+            }
+            
+            updateConnectionStatus(status) {
+                this.connectionStatus.className = `connection-status ${status}`;
+                
+                switch(status) {
+                    case 'connected':
+                        this.connectionText.textContent = 'Connected';
+                        break;
+                    case 'connecting':
+                        this.connectionText.textContent = 'Connecting...';
+                        break;
+                    case 'disconnected':
+                        this.connectionText.textContent = 'Disconnected';
+                        break;
+                }
+            }
+            
+            updateUI() {
+                this.startBtn.disabled = this.isRunning || !this.ws || this.ws.readyState !== WebSocket.OPEN;
+                this.stopBtn.disabled = !this.isRunning;
+                this.captureBtn.disabled = !this.isRunning;
+                this.cameraSelect.disabled = this.isRunning;
+            }
+            
+            startDetection() {
+                if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+                    this.log('WebSocket not connected');
+                    return;
+                }
+                
+                const cameraId = parseInt(this.cameraSelect.value);
+                
+                this.ws.send(JSON.stringify({
+                    type: 'start_recognition',
+                    camera_id: cameraId
+                }));
+                
+                this.log(`Starting detection with camera ${cameraId}`);
+            }
+            
+            stopDetection() {
+                if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+                    this.log('WebSocket not connected');
+                    return;
+                }
+                
+                this.ws.send(JSON.stringify({
+                    type: 'stop_recognition'
+                }));
+                
+                this.log('Stopping detection');
+            }
+            
+            captureFrame() {
+                // This could be implemented to save the current frame
+                this.log('Frame capture feature not implemented yet');
+            }
+            
+            // Image upload handlers
+            handleDragOver(e) {
+                e.preventDefault();
+                this.uploadArea.classList.add('dragover');
+            }
+            
+            handleDragLeave(e) {
+                e.preventDefault();
+                this.uploadArea.classList.remove('dragover');
+            }
+            
+            handleDrop(e) {
+                e.preventDefault();
+                this.uploadArea.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    this.processImage(files[0]);
+                }
+            }
+            
+            handleImageSelect(e) {
+                const files = e.target.files;
+                if (files.length > 0) {
+                    this.processImage(files[0]);
+                }
+            }
+            
+            processImage(file) {
+                if (!file.type.startsWith('image/')) {
+                    this.log('Please select a valid image file');
+                    return;
+                }
+                
+                if (file.size > 10 * 1024 * 1024) {
+                    this.log('Image size must be less than 10MB');
+                    return;
+                }
+                
+                this.uploadResults.style.display = 'none';
+                this.processingSpinner.style.display = 'block';
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    if (this.imageWs && this.imageWs.readyState === WebSocket.OPEN) {
+                        this.imageWs.send(JSON.stringify({
+                            type: 'process_image',
+                            image: e.target.result
+                        }));
+                        
+                        this.log(`Processing image: ${file.name}`);
+                    } else {
+                        this.log('Image WebSocket not connected');
+                        this.processingSpinner.style.display = 'none';
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            log(message) {
+                const timestamp = new Date().toLocaleTimeString();
+                const logElement = this.systemLog;
+                logElement.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+        }
+        
+        function clearLog() {
+            document.getElementById('systemLog').innerHTML = '<div>Log cleared</div>';
+        }
+        
+        function clearSpeciesList() {
+            if (window.fishApp) {
+                window.fishApp.detectedSpecies.clear();
+                window.fishApp.renderSpeciesList();
+                window.fishApp.log('Species list cleared');
+            }
+        }
+        
+        // Initialize the app when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.fishApp = new FishRecognitionApp();
+        });
+    </script>
+</body>
+</html>

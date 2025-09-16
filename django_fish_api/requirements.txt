@@ -1,0 +1,35 @@
+# Django and REST Framework
+Django==4.2.7
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+
+# WebSocket support
+channels==4.0.0
+channels-redis==4.1.0
+
+# Database
+# psycopg2-binary==2.9.7  # for PostgreSQL (optional)
+
+# AI/ML dependencies (same as realtime_fish_recognition.py)
+torch==2.1.0
+torchvision==0.16.0
+opencv-python==4.8.1.78
+numpy==1.24.3
+Pillow==10.0.1
+
+# System monitoring
+psutil==5.9.6
+
+# Development and utilities
+python-decouple==3.8  # for environment variables
+gunicorn==21.2.0  # for production deployment
+whitenoise==6.6.0  # for static files in production
+uvicorn==0.24.0  # for ASGI server
+
+# Optional: for better performance
+redis==5.0.1  # for channel layers in production
+celery==5.3.4  # for background tasks (optional)
+
+# Testing
+pytest==7.4.2
+pytest-django==4.6.0
