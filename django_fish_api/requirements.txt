@@ -11,7 +11,7 @@ channels-redis==4.1.0
 # psycopg2-binary==2.9.7  # for PostgreSQL (optional)
 
 # AI/ML dependencies (same as realtime_fish_recognition.py)
-torch==2.1.0
+torch==2.8.0
 torchvision==0.16.0
 opencv-python==4.8.1.78
 numpy==1.24.3
